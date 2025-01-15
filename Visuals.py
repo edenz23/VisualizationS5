@@ -42,7 +42,7 @@ metric_groups = {
 # Reverse mapping for user-friendly names
 reverse_mapping = {v: k for k, v in field_name_mapping.items()}
 
-# Streamlit app
+
 st.title("Interactive Irrigation Data Visualizations")
 
 # Filters
@@ -53,14 +53,8 @@ selected_month = st.sidebar.multiselect(
     format_func=lambda x: datetime(1900, x, 1).strftime('%B'),
     default=range(3, 11)
 )
-selected_season = st.sidebar.selectbox("Select Season:", options=[
-    "None", "Spring", "Summer", "Autumn"
-])
-season_months = {
-    "Spring": [3, 4, 5],
-    "Summer": [6, 7, 8],
-    "Autumn": [9, 10]
-}
+selected_season = st.sidebar.selectbox("Select Season:", options=["None", "Spring", "Summer", "Autumn"])
+season_months = {"Spring": [3, 4, 5], "Summer": [6, 7, 8], "Autumn": [9, 10]}
 if selected_season != "None":
     selected_month = season_months[selected_season]
 
@@ -76,32 +70,61 @@ filtered_data = filtered_data[(filtered_data['100'].isin([1 if p == '100' else 0
 # Visualization options
 st.sidebar.header("Visualization Options")
 visualization_type = st.sidebar.selectbox("Select Visualization Type:", options=[
-    "Seasonal Trends", "Irrigation Impact", "Heatmap (Correlations)", "Tree Health Visualization"
+    "Seasonal Trends", "Irrigation Impact", "Heatmap (Correlations)", "Tree Health Visualization", "Combination Comparisons"
 ])
+
 
 # Visualization logic
 if visualization_type == "Seasonal Trends":
     st.header("Seasonal Trends")
-    metric_options = ["Tensiometer", "TDR Water", "TDR Salt"] + [field_name_mapping[f] for f in [
-        "eto (mm/day)", "vpd (kPa)", "frond_growth_rate", "irrigation", "D", "E", "100", "50"]]
-    selected_metric = st.selectbox("Select Metric:", options=metric_options, index=0)
 
+    # Create two columns for side-by-side dropdowns
+    col1, col2 = st.columns(2)
+
+    with col1:
+        time_scale = st.selectbox("Select Time Scale:", options=["Month", "Week", "Day", "All Data Points"], index=0)
+
+    with col2:
+        metric_options = ["Tensiometer", "TDR Water", "TDR Salt"] + [field_name_mapping[f] for f in [
+            "eto (mm/day)", "vpd (kPa)", "frond_growth_rate", "irrigation", "D", "E", "100", "50"]]
+        selected_metric = st.selectbox("Select Metric:", options=metric_options, index=0)
+
+    # Group by the selected time scale
     if selected_metric in field_name_mapping.values():
         metrics = [reverse_mapping[selected_metric]]
     else:
         metrics = metric_groups[selected_metric]
 
-    trend_data = filtered_data.groupby('month')[metrics].mean().reset_index()
+    if time_scale == "Month":
+        trend_data = filtered_data.groupby('month')[metrics].mean().reset_index()
+        x_axis = 'month'
+        x_labels = [datetime(1900, m, 1).strftime('%B') for m in range(3, 11)]
+    elif time_scale == "Week":
+        filtered_data['week'] = filtered_data['date'].dt.isocalendar().week
+        trend_data = filtered_data.groupby('week')[metrics].mean().reset_index()
+        x_axis = 'week'
+        x_labels = None
+    elif time_scale == "Day":
+        trend_data = filtered_data.groupby('date')[metrics].mean().reset_index()
+        x_axis = 'date'
+        x_labels = None
+    else:  # All Data Points
+        trend_data = filtered_data
+        x_axis = 'date'
+        x_labels = None
+
     fig = px.line(
         trend_data,
-        x='month',
+        x=x_axis,
         y=metrics,
-        title='Seasonal Trends',
-        labels={'month': 'Month'},
+        title=f'Seasonal Trends ({time_scale})',
+        labels={x_axis: time_scale},
         template="plotly_white"
     )
-    fig.update_xaxes(tickmode='array', tickvals=list(range(3, 11)), ticktext=[datetime(1900, m, 1).strftime('%B') for m in range(3, 11)])
+    if x_labels:
+        fig.update_xaxes(tickmode='array', tickvals=list(range(3, 11)), ticktext=x_labels)
     st.plotly_chart(fig)
+
 
 elif visualization_type == "Irrigation Impact":
     st.header("Irrigation Impact")
@@ -169,9 +192,35 @@ elif visualization_type == "Tree Health Visualization":
         size=metric_key,
         color=metric_key,
         title=f'Tree Health Based on {tree_metric}',
-      labels={'month': 'Month', metric_key: tree_metric},
+        labels={'month': 'Month', metric_key: tree_metric},
         template="plotly_white"
     )
     fig.update_xaxes(tickmode='array', tickvals=list(range(3, 11)), ticktext=[datetime(1900, m, 1).strftime('%B') for m in range(3, 11)])
+    st.plotly_chart(fig)
+
+elif visualization_type == "Combination Comparisons":
+    st.header("Combination Comparisons")
+    combinations = [
+        ("100", "D"), ("100", "E"),
+        ("50", "D"), ("50", "E")
+    ]
+    filtered_data['Combination'] = filtered_data.apply(
+        lambda row: f"{'100%' if row['100'] == 1 else '50%'} & {'D' if row['D'] == 1 else 'E'}",
+        axis=1
+    )
+
+    y_axis = st.selectbox("Select Y-Axis:", options=[field_name_mapping[k] for k in [
+        "frond_growth_rate", "tensiometer_40", "tensiometer_80", "tdr_water_40", "tdr_water_80"]])
+    y_axis = reverse_mapping[y_axis]
+
+    fig = px.box(
+        filtered_data,
+        x='Combination',
+        y=y_axis,
+        color='Combination',
+        title=f'Comparison of {field_name_mapping[y_axis]} Across dropper types and water supplied combinations',
+        labels={'Combination': 'Combination', y_axis: field_name_mapping[y_axis]},
+        template="plotly_white"
+    )
     st.plotly_chart(fig)
 
