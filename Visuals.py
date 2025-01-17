@@ -70,7 +70,7 @@ filtered_data = filtered_data[(filtered_data['100'].isin([1 if p == '100' else 0
 # Visualization options
 st.sidebar.header("Visualization Options")
 visualization_type = st.sidebar.selectbox("Select Visualization Type:", options=[
-    "Seasonal Trends", "Irrigation Impact", "Heatmap (Correlations)", "Tree Health Visualization", "Combination Comparisons"
+    "Seasonal Trends", "Heatmap (Correlations)", "Tree Health Visualization", "Combination Comparisons"
 ])
 
 
