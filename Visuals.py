@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import datetime
+import statsmodels
 
 # Load data
 def load_data():
@@ -70,7 +71,7 @@ filtered_data = filtered_data[(filtered_data['100'].isin([1 if p == '100' else 0
 # Visualization options
 st.sidebar.header("Visualization Options")
 visualization_type = st.sidebar.selectbox("Select Visualization Type:", options=[
-    "Seasonal Trends", "Irrigation Impact", "Heatmap (Correlations)", "Tree Health Visualization", "Combination Comparisons"
+    "Seasonal Trends", "Heatmap (Correlations)", "Tree Health Visualization", "Combination Comparisons", "Correlation to Frond Growth Rate"
 ])
 
 
@@ -134,48 +135,35 @@ if visualization_type == "Seasonal Trends":
         fig.update_xaxes(tickmode='array', tickvals=list(range(3, 11)), ticktext=x_labels)
     st.plotly_chart(fig)
 
-
-
-elif visualization_type == "Irrigation Impact":
-    st.header("Irrigation Impact")
-    x_axis_options = ["100% Water Supplied", "50% Water Supplied", "Dropper Type D", "Dropper Type E", "Combination"]
-    x_axis = st.selectbox("Select X-Axis:", options=x_axis_options, index=0)
-
-    if x_axis == "Combination":
-        filtered_data['Combination'] = (
-            filtered_data['D'].map({1: 'D', 0: ''}) + " & " +
-            filtered_data['E'].map({1: 'E', 0: ''}) + " / " +
-            filtered_data['100'].map({1: '100%', 0: ''}) + " & " +
-            filtered_data['50'].map({1: '50%', 0: ''})
-        )
-        x_axis = 'Combination'
-    else:
-        x_axis = reverse_mapping[x_axis]
-
-    y_axis = st.selectbox("Select Y-Axis:", options=[field_name_mapping[k] for k in [
-        "frond_growth_rate", "tensiometer_40", "tensiometer_80", "tdr_water_40", "tdr_water_80"]])
-    y_axis = reverse_mapping[y_axis]
-
-    fig = px.box(
-        filtered_data,
-        x=x_axis,
-        y=y_axis,
-        color=x_axis if x_axis != 'Combination' else None,
-        title=f'Irrigation Impact on {field_name_mapping[y_axis]}',
-        labels={x_axis: x_axis, y_axis: field_name_mapping[y_axis]},
-        template="plotly_white"
-    )
-    st.plotly_chart(fig)
-
 elif visualization_type == "Heatmap (Correlations)":
     st.header("Heatmap (Correlations)")
-    correlation_data = filtered_data[[
+
+    # List of columns available for selection
+    available_columns = [
         "tensiometer_40", "tensiometer_80", "tdr_water_40", "tdr_water_80",
         "tdr_salt_40", "tdr_salt_80", "eto (mm/day)", "vpd (kPa)", "frond_growth_rate", "irrigation"
-    ]]
+    ]
+    column_labels = [field_name_mapping[col] for col in available_columns]
+
+    # Multiselect dropdown for column selection
+    selected_columns = st.multiselect(
+        "Select Columns for Correlation Heatmap:",
+        options=column_labels,
+        default=column_labels  # Preselect all columns by default
+    )
+
+    # Map selected labels back to column names
+    selected_columns_mapped = [reverse_mapping[label] for label in selected_columns]
+
+    # Filter the data to the selected columns
+    correlation_data = filtered_data[selected_columns_mapped]
+
+    # Compute the correlation matrix
     corr = correlation_data.corr()
     corr.columns = [field_name_mapping.get(c, c) for c in corr.columns]
     corr.index = [field_name_mapping.get(c, c) for c in corr.index]
+
+    # Create the heatmap
     fig = px.imshow(
         corr,
         title='Correlation Heatmap',
@@ -185,7 +173,10 @@ elif visualization_type == "Heatmap (Correlations)":
         width=1000,
         height=800
     )
+
+    # Display the heatmap
     st.plotly_chart(fig)
+
 
 elif visualization_type == "Tree Health Visualization":
     st.header("Tree Health Visualization")
@@ -211,9 +202,8 @@ elif visualization_type == "Tree Health Visualization":
 elif visualization_type == "Combination Comparisons":
     st.header("Combination Comparisons")
 
-    # Dropdown for plot type (box plot or scatter plot)
-    plot_type = st.selectbox("Select Plot Type:", options=["Box Plot", "Scatter Plot"])
-
+    # Dropdown for plot type (box plot, scatter plot, trend line)
+    plot_type = st.selectbox("Select Plot Type:", options=["Box Plot", "Scatter Plot", "Trend Line"])
 
     # Define possible combinations including all 8 groups
     def create_combinations(row):
@@ -235,7 +225,6 @@ elif visualization_type == "Combination Comparisons":
         if row['E'] == 1 and row['50'] == 1:
             combinations.append("50% & E")
         return combinations
-
 
     # Create a unified "Combination" column as a list of combinations
     filtered_data['Combination'] = filtered_data.apply(create_combinations, axis=1)
@@ -286,18 +275,126 @@ elif visualization_type == "Combination Comparisons":
         x_axis = st.selectbox("Select X-Axis:", options=x_axis_options, index=0)
         y_axis = st.selectbox("Select Y-Axis:", options=x_axis_options, index=1)
 
-        # Plot the scatter chart
+        # Define a specific shape for each combination
+        symbol_map = {
+            "100% & D": "circle",
+            "100% & E": "square",
+            "50% & D": "diamond",
+            "50% & E": "cross",
+            "Only D": "x",
+            "Only E": "triangle-up",
+            "Only 50": "triangle-down",
+            "Only 100": "star"
+        }
+
+        # Normalize the date column for color mapping
+        filtered_combinations['date_numeric'] = (
+                    filtered_combinations['date'] - filtered_combinations['date'].min()).dt.days
+
+        # Plot the scatter chart with shapes for categories and color for time
         fig = px.scatter(
             filtered_combinations,
             x=x_axis,
             y=y_axis,
-            color='Combination',
+            color='date_numeric',  # Color points by normalized date
+            symbol='Combination',  # Use shapes to differentiate categories
+            symbol_map=symbol_map,  # Map each combination to a specific shape
             title=f'Scatter Plot: {x_axis} vs {y_axis}',
-            labels={x_axis: x_axis, y_axis: y_axis},
+            labels={
+                x_axis: x_axis,
+                y_axis: y_axis,
+                'date_numeric': 'Date (Oldest to Newest)',
+                'Combination': 'Legend (Shapes)'
+            },
+            color_continuous_scale=['green', 'brown'],  # Green for oldest, brown for newest
+            template="plotly_white"
+        )
+
+        # Update the layout to position legends
+        fig.update_layout(
+            # Positioning the symbol legend
+            legend=dict(
+                yanchor="bottom",  # Anchor at the top
+                y=0,  # Position above the plot
+                xanchor="left",  # Align to the left
+                bgcolor="gray",  # Optional: Set a black background
+                bordercolor="white",  # Optional: Add a white border
+                x=50  # Slight left margin
+            ),
+            # Positioning the color bar
+            coloraxis_colorbar=dict(
+                title="Date Progression",  # Title for the color bar
+                yanchor="bottom",  # Anchor at the top
+                y=5,  # Position below the symbol legend
+                xanchor="left",  # Align to the left
+                x=50  # Match symbol legend alignment
+            )
+        )
+
+        st.plotly_chart(fig)
+
+    # Trend line plot
+    elif plot_type == "Trend Line":
+        y_axis = st.selectbox("Select Y-Axis:", options=[field_name_mapping[k] for k in [
+            "frond_growth_rate", "tensiometer_40", "tensiometer_80", "tdr_water_40", "tdr_water_80"]])
+        y_axis = reverse_mapping[y_axis]
+
+        # Create a trend line for each combination group over time
+        fig = px.line(
+            filtered_combinations,
+            x='date',
+            y=y_axis,
+            color='Combination',
+            title=f'Trend Line of {field_name_mapping[y_axis]} Over Time',
+            labels={'date': 'Date', y_axis: field_name_mapping[y_axis]},
             template="plotly_white"
         )
         st.plotly_chart(fig)
 
+elif visualization_type == "Correlation to Frond Growth Rate":
+    st.header("Correlation to Frond Growth Rate")
+
+    # List of columns available for selection
+    available_columns = [
+        "tensiometer_40", "tensiometer_80", "tdr_water_40", "tdr_water_80",
+        "tdr_salt_40", "tdr_salt_80", "eto (mm/day)", "vpd (kPa)", "irrigation"
+    ]
+    column_labels = [field_name_mapping[col] for col in available_columns]
+
+    # Multiselect dropdown for column selection
+    selected_columns = st.multiselect(
+        "Select Columns to Combine and Correlate with Frond Growth Rate:",
+        options=column_labels,
+        default=[]  # No columns selected by default
+    )
+
+    if selected_columns:
+        # Map selected labels back to column names
+        selected_columns_mapped = [reverse_mapping[label] for label in selected_columns]
+
+        # Create a combined feature as the average of the selected columns
+        filtered_data['combined_feature'] = filtered_data[selected_columns_mapped].mean(axis=1)
+
+        # Compute the correlation of the combined feature with `frond_growth_rate`
+        correlation_value = filtered_data[['combined_feature', 'frond_growth_rate']].corr().iloc[0, 1]
+
+        # Display the correlation value
+        st.subheader(f"Combined Correlation with Frond Growth Rate: {correlation_value:.2f}")
+
+        # Line plot to visualize the relationship
+        fig = px.scatter(
+            filtered_data,
+            x='combined_feature',
+            y='frond_growth_rate',
+            trendline="ols",
+            title='Combined Feature vs. Frond Growth Rate',
+            labels={'combined_feature': 'Combined Feature', 'frond_growth_rate': 'Frond Growth Rate'},
+            template="plotly_white"
+        )
+        st.plotly_chart(fig)
+
+    else:
+        st.write("Select at least one column to calculate the correlation.")
 
 
 
