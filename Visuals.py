@@ -136,13 +136,33 @@ if visualization_type == "Seasonal Trends":
 
 elif visualization_type == "Heatmap (Correlations)":
     st.header("Heatmap (Correlations)")
-    correlation_data = filtered_data[[
+
+    # List of columns available for selection
+    available_columns = [
         "tensiometer_40", "tensiometer_80", "tdr_water_40", "tdr_water_80",
         "tdr_salt_40", "tdr_salt_80", "eto (mm/day)", "vpd (kPa)", "frond_growth_rate", "irrigation"
-    ]]
+    ]
+    column_labels = [field_name_mapping[col] for col in available_columns]
+
+    # Multiselect dropdown for column selection
+    selected_columns = st.multiselect(
+        "Select Columns for Correlation Heatmap:",
+        options=column_labels,
+        default=column_labels  # Preselect all columns by default
+    )
+
+    # Map selected labels back to column names
+    selected_columns_mapped = [reverse_mapping[label] for label in selected_columns]
+
+    # Filter the data to the selected columns
+    correlation_data = filtered_data[selected_columns_mapped]
+
+    # Compute the correlation matrix
     corr = correlation_data.corr()
     corr.columns = [field_name_mapping.get(c, c) for c in corr.columns]
     corr.index = [field_name_mapping.get(c, c) for c in corr.index]
+
+    # Create the heatmap
     fig = px.imshow(
         corr,
         title='Correlation Heatmap',
@@ -152,7 +172,10 @@ elif visualization_type == "Heatmap (Correlations)":
         width=1000,
         height=800
     )
+
+    # Display the heatmap
     st.plotly_chart(fig)
+
 
 elif visualization_type == "Tree Health Visualization":
     st.header("Tree Health Visualization")
