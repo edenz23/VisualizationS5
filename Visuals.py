@@ -269,25 +269,25 @@ elif visualization_type == "Combination Comparisons":
     # Scatter plot
     elif plot_type == "Scatter Plot":
         # Allow user to select X and Y axes for scatter plot
-        x_axis_options = [field_name_mapping[k] for k in [
-            "tensiometer_40", "tensiometer_80", "tdr_water_40", "tdr_water_80",
-            "frond_growth_rate", "eto (mm/day)", "vpd (kPa)", "irrigation"]]
+        x_axis_options = [
+            'date', 'tensiometer_40', 'tensiometer_80', 'tdr_water_40',
+            'tdr_water_80', 'frond_growth_rate', 'eto (mm/day)', 'vpd (kPa)', 'irrigation'
+        ]
         x_axis = st.selectbox("Select X-Axis:", options=x_axis_options, index=0)
         y_axis = st.selectbox("Select Y-Axis:", options=x_axis_options, index=1)
 
-        x_axis = reverse_mapping[x_axis]
-        y_axis = reverse_mapping[y_axis]
-
+        # Plot the scatter chart
         fig = px.scatter(
             filtered_combinations,
             x=x_axis,
             y=y_axis,
             color='Combination',
-            title=f'Scatter Plot: {field_name_mapping[x_axis]} vs {field_name_mapping[y_axis]}',
-            labels={x_axis: field_name_mapping[x_axis], y_axis: field_name_mapping[y_axis]},
+            title=f'Scatter Plot: {x_axis} vs {y_axis}',
+            labels={x_axis: x_axis, y_axis: y_axis},
             template="plotly_white"
         )
         st.plotly_chart(fig)
+
 
 
 
