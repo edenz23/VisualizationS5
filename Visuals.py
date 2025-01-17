@@ -211,9 +211,8 @@ elif visualization_type == "Tree Health Visualization":
 elif visualization_type == "Combination Comparisons":
     st.header("Combination Comparisons")
 
-    # Dropdown for plot type (box plot or scatter plot)
-    plot_type = st.selectbox("Select Plot Type:", options=["Box Plot", "Scatter Plot"])
-
+    # Dropdown for plot type (box plot, scatter plot, trend line)
+    plot_type = st.selectbox("Select Plot Type:", options=["Box Plot", "Scatter Plot", "Trend Line"])
 
     # Define possible combinations including all 8 groups
     def create_combinations(row):
@@ -235,7 +234,6 @@ elif visualization_type == "Combination Comparisons":
         if row['E'] == 1 and row['50'] == 1:
             combinations.append("50% & E")
         return combinations
-
 
     # Create a unified "Combination" column as a list of combinations
     filtered_data['Combination'] = filtered_data.apply(create_combinations, axis=1)
@@ -294,6 +292,24 @@ elif visualization_type == "Combination Comparisons":
             color='Combination',
             title=f'Scatter Plot: {x_axis} vs {y_axis}',
             labels={x_axis: x_axis, y_axis: y_axis},
+            template="plotly_white"
+        )
+        st.plotly_chart(fig)
+
+    # Trend line plot
+    elif plot_type == "Trend Line":
+        y_axis = st.selectbox("Select Y-Axis:", options=[field_name_mapping[k] for k in [
+            "frond_growth_rate", "tensiometer_40", "tensiometer_80", "tdr_water_40", "tdr_water_80"]])
+        y_axis = reverse_mapping[y_axis]
+
+        # Create a trend line for each combination group over time
+        fig = px.line(
+            filtered_combinations,
+            x='date',
+            y=y_axis,
+            color='Combination',
+            title=f'Trend Line of {field_name_mapping[y_axis]} Over Time',
+            labels={'date': 'Date', y_axis: field_name_mapping[y_axis]},
             template="plotly_white"
         )
         st.plotly_chart(fig)
