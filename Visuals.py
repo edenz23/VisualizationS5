@@ -275,16 +275,62 @@ elif visualization_type == "Combination Comparisons":
         x_axis = st.selectbox("Select X-Axis:", options=x_axis_options, index=0)
         y_axis = st.selectbox("Select Y-Axis:", options=x_axis_options, index=1)
 
-        # Plot the scatter chart
+        # Define a specific shape for each combination
+        symbol_map = {
+            "100% & D": "circle",
+            "100% & E": "square",
+            "50% & D": "diamond",
+            "50% & E": "cross",
+            "Only D": "x",
+            "Only E": "triangle-up",
+            "Only 50": "triangle-down",
+            "Only 100": "star"
+        }
+
+        # Normalize the date column for color mapping
+        filtered_combinations['date_numeric'] = (
+                    filtered_combinations['date'] - filtered_combinations['date'].min()).dt.days
+
+        # Plot the scatter chart with shapes for categories and color for time
         fig = px.scatter(
             filtered_combinations,
             x=x_axis,
             y=y_axis,
-            color='Combination',
+            color='date_numeric',  # Color points by normalized date
+            symbol='Combination',  # Use shapes to differentiate categories
+            symbol_map=symbol_map,  # Map each combination to a specific shape
             title=f'Scatter Plot: {x_axis} vs {y_axis}',
-            labels={x_axis: x_axis, y_axis: y_axis},
+            labels={
+                x_axis: x_axis,
+                y_axis: y_axis,
+                'date_numeric': 'Date (Oldest to Newest)',
+                'Combination': 'Legend (Shapes)'
+            },
+            color_continuous_scale=['green', 'brown'],  # Green for oldest, brown for newest
             template="plotly_white"
         )
+
+        # Update the layout to position legends
+        fig.update_layout(
+            # Positioning the symbol legend
+            legend=dict(
+                yanchor="bottom",  # Anchor at the top
+                y=0,  # Position above the plot
+                xanchor="left",  # Align to the left
+                bgcolor="gray",  # Optional: Set a black background
+                bordercolor="white",  # Optional: Add a white border
+                x=50  # Slight left margin
+            ),
+            # Positioning the color bar
+            coloraxis_colorbar=dict(
+                title="Date Progression",  # Title for the color bar
+                yanchor="bottom",  # Anchor at the top
+                y=5,  # Position below the symbol legend
+                xanchor="left",  # Align to the left
+                x=50  # Match symbol legend alignment
+            )
+        )
+
         st.plotly_chart(fig)
 
     # Trend line plot
