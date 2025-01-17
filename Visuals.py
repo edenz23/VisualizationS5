@@ -85,16 +85,24 @@ if visualization_type == "Seasonal Trends":
         time_scale = st.selectbox("Select Time Scale:", options=["Month", "Week", "Day", "All Data Points"], index=0)
 
     with col2:
-        metric_options = ["Tensiometer", "TDR Water", "TDR Salt"] + [field_name_mapping[f] for f in [
-            "eto (mm/day)", "vpd (kPa)", "frond_growth_rate", "irrigation", "D", "E", "100", "50"]]
-        selected_metric = st.selectbox("Select Metric:", options=metric_options, index=0)
+        # Updated metric options to list all metrics individually
+        metric_options = [
+            "Tensiometer at 40cm", "Tensiometer at 80cm",
+            "TDR Water at 40cm", "TDR Water at 80cm",
+            "TDR Salt at 40cm", "TDR Salt at 80cm",
+            "Evapotranspiration (mm/day)", "Vapor Pressure Deficit (kPa)",
+            "Frond Growth Rate", "Irrigation Amount"
+        ]
+        selected_metrics = st.multiselect(
+            "Select Metrics:",
+            options=metric_options,
+            default=[metric_options[0]]  # Default to the first metric for usability
+        )
+
+    # Reverse mapping for the selected metrics
+    metrics = [reverse_mapping[selected_metric] for selected_metric in selected_metrics]
 
     # Group by the selected time scale
-    if selected_metric in field_name_mapping.values():
-        metrics = [reverse_mapping[selected_metric]]
-    else:
-        metrics = metric_groups[selected_metric]
-
     if time_scale == "Month":
         trend_data = filtered_data.groupby('month')[metrics].mean().reset_index()
         x_axis = 'month'
@@ -113,17 +121,19 @@ if visualization_type == "Seasonal Trends":
         x_axis = 'date'
         x_labels = None
 
+    # Create the line plot for multiple metrics
     fig = px.line(
         trend_data,
         x=x_axis,
         y=metrics,
         title=f'Seasonal Trends ({time_scale})',
-        labels={x_axis: time_scale},
+        labels={x_axis: time_scale, **{metric: field_name_mapping.get(metric, metric) for metric in metrics}},
         template="plotly_white"
     )
     if x_labels:
         fig.update_xaxes(tickmode='array', tickvals=list(range(3, 11)), ticktext=x_labels)
     st.plotly_chart(fig)
+
 
 
 elif visualization_type == "Irrigation Impact":
@@ -200,27 +210,94 @@ elif visualization_type == "Tree Health Visualization":
 
 elif visualization_type == "Combination Comparisons":
     st.header("Combination Comparisons")
-    combinations = [
-        ("100", "D"), ("100", "E"),
-        ("50", "D"), ("50", "E")
+
+    # Dropdown for plot type (box plot or scatter plot)
+    plot_type = st.selectbox("Select Plot Type:", options=["Box Plot", "Scatter Plot"])
+
+
+    # Define possible combinations including all 8 groups
+    def create_combinations(row):
+        combinations = []
+        if row['D'] == 1:
+            combinations.append("Only D")
+        if row['E'] == 1:
+            combinations.append("Only E")
+        if row['50'] == 1:
+            combinations.append("Only 50")
+        if row['100'] == 1:
+            combinations.append("Only 100")
+        if row['D'] == 1 and row['100'] == 1:
+            combinations.append("100% & D")
+        if row['E'] == 1 and row['100'] == 1:
+            combinations.append("100% & E")
+        if row['D'] == 1 and row['50'] == 1:
+            combinations.append("50% & D")
+        if row['E'] == 1 and row['50'] == 1:
+            combinations.append("50% & E")
+        return combinations
+
+
+    # Create a unified "Combination" column as a list of combinations
+    filtered_data['Combination'] = filtered_data.apply(create_combinations, axis=1)
+
+    # Expand the data so each row corresponds to a single combination
+    expanded_data = filtered_data.explode('Combination')
+
+    # Available combinations for selection
+    combinations_map = [
+        "100% & D", "100% & E", "50% & D", "50% & E",
+        "Only D", "Only E", "Only 50", "Only 100"
     ]
-    filtered_data['Combination'] = filtered_data.apply(
-        lambda row: f"{'100%' if row['100'] == 1 else '50%'} & {'D' if row['D'] == 1 else 'E'}",
-        axis=1
+
+    # Select multiple combinations for scatter plot
+    selected_combinations = st.multiselect(
+        "Select Combinations:",
+        options=combinations_map,
+        default=combinations_map
     )
 
-    y_axis = st.selectbox("Select Y-Axis:", options=[field_name_mapping[k] for k in [
-        "frond_growth_rate", "tensiometer_40", "tensiometer_80", "tdr_water_40", "tdr_water_80"]])
-    y_axis = reverse_mapping[y_axis]
+    # Filter data based on selected combinations
+    filtered_combinations = expanded_data[expanded_data['Combination'].isin(selected_combinations)]
 
-    fig = px.box(
-        filtered_data,
-        x='Combination',
-        y=y_axis,
-        color='Combination',
-        title=f'Comparison of {field_name_mapping[y_axis]} Across dropper types and water supplied combinations',
-        labels={'Combination': 'Combination', y_axis: field_name_mapping[y_axis]},
-        template="plotly_white"
-    )
-    st.plotly_chart(fig)
+    # Box plot
+    if plot_type == "Box Plot":
+        y_axis = st.selectbox("Select Y-Axis:", options=[field_name_mapping[k] for k in [
+            "frond_growth_rate", "tensiometer_40", "tensiometer_80", "tdr_water_40", "tdr_water_80"]])
+        y_axis = reverse_mapping[y_axis]
+
+        fig = px.box(
+            filtered_combinations,
+            x='Combination',
+            y=y_axis,
+            color='Combination',
+            title=f'Comparison of {field_name_mapping[y_axis]} Across Combinations',
+            labels={'Combination': 'Combination', y_axis: field_name_mapping[y_axis]},
+            template="plotly_white"
+        )
+        st.plotly_chart(fig)
+
+    # Scatter plot
+    elif plot_type == "Scatter Plot":
+        # Allow user to select X and Y axes for scatter plot
+        x_axis_options = [
+            'date', 'tensiometer_40', 'tensiometer_80', 'tdr_water_40',
+            'tdr_water_80', 'frond_growth_rate', 'eto (mm/day)', 'vpd (kPa)', 'irrigation'
+        ]
+        x_axis = st.selectbox("Select X-Axis:", options=x_axis_options, index=0)
+        y_axis = st.selectbox("Select Y-Axis:", options=x_axis_options, index=1)
+
+        # Plot the scatter chart
+        fig = px.scatter(
+            filtered_combinations,
+            x=x_axis,
+            y=y_axis,
+            color='Combination',
+            title=f'Scatter Plot: {x_axis} vs {y_axis}',
+            labels={x_axis: x_axis, y_axis: y_axis},
+            template="plotly_white"
+        )
+        st.plotly_chart(fig)
+
+
+
 
