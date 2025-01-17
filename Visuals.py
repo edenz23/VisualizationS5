@@ -85,16 +85,24 @@ if visualization_type == "Seasonal Trends":
         time_scale = st.selectbox("Select Time Scale:", options=["Month", "Week", "Day", "All Data Points"], index=0)
 
     with col2:
-        metric_options = ["Tensiometer", "TDR Water", "TDR Salt"] + [field_name_mapping[f] for f in [
-            "eto (mm/day)", "vpd (kPa)", "frond_growth_rate", "irrigation", "D", "E", "100", "50"]]
-        selected_metric = st.selectbox("Select Metric:", options=metric_options, index=0)
+        # Updated metric options to list all metrics individually
+        metric_options = [
+            "Tensiometer at 40cm", "Tensiometer at 80cm",
+            "TDR Water at 40cm", "TDR Water at 80cm",
+            "TDR Salt at 40cm", "TDR Salt at 80cm",
+            "Evapotranspiration (mm/day)", "Vapor Pressure Deficit (kPa)",
+            "Frond Growth Rate", "Irrigation Amount"
+        ]
+        selected_metrics = st.multiselect(
+            "Select Metrics:",
+            options=metric_options,
+            default=[metric_options[0]]  # Default to the first metric for usability
+        )
+
+    # Reverse mapping for the selected metrics
+    metrics = [reverse_mapping[selected_metric] for selected_metric in selected_metrics]
 
     # Group by the selected time scale
-    if selected_metric in field_name_mapping.values():
-        metrics = [reverse_mapping[selected_metric]]
-    else:
-        metrics = metric_groups[selected_metric]
-
     if time_scale == "Month":
         trend_data = filtered_data.groupby('month')[metrics].mean().reset_index()
         x_axis = 'month'
@@ -113,17 +121,19 @@ if visualization_type == "Seasonal Trends":
         x_axis = 'date'
         x_labels = None
 
+    # Create the line plot for multiple metrics
     fig = px.line(
         trend_data,
         x=x_axis,
         y=metrics,
         title=f'Seasonal Trends ({time_scale})',
-        labels={x_axis: time_scale},
+        labels={x_axis: time_scale, **{metric: field_name_mapping.get(metric, metric) for metric in metrics}},
         template="plotly_white"
     )
     if x_labels:
         fig.update_xaxes(tickmode='array', tickvals=list(range(3, 11)), ticktext=x_labels)
     st.plotly_chart(fig)
+
 
 
 elif visualization_type == "Irrigation Impact":
