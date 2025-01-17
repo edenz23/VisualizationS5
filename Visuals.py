@@ -134,39 +134,6 @@ if visualization_type == "Seasonal Trends":
         fig.update_xaxes(tickmode='array', tickvals=list(range(3, 11)), ticktext=x_labels)
     st.plotly_chart(fig)
 
-
-
-elif visualization_type == "Irrigation Impact":
-    st.header("Irrigation Impact")
-    x_axis_options = ["100% Water Supplied", "50% Water Supplied", "Dropper Type D", "Dropper Type E", "Combination"]
-    x_axis = st.selectbox("Select X-Axis:", options=x_axis_options, index=0)
-
-    if x_axis == "Combination":
-        filtered_data['Combination'] = (
-            filtered_data['D'].map({1: 'D', 0: ''}) + " & " +
-            filtered_data['E'].map({1: 'E', 0: ''}) + " / " +
-            filtered_data['100'].map({1: '100%', 0: ''}) + " & " +
-            filtered_data['50'].map({1: '50%', 0: ''})
-        )
-        x_axis = 'Combination'
-    else:
-        x_axis = reverse_mapping[x_axis]
-
-    y_axis = st.selectbox("Select Y-Axis:", options=[field_name_mapping[k] for k in [
-        "frond_growth_rate", "tensiometer_40", "tensiometer_80", "tdr_water_40", "tdr_water_80"]])
-    y_axis = reverse_mapping[y_axis]
-
-    fig = px.box(
-        filtered_data,
-        x=x_axis,
-        y=y_axis,
-        color=x_axis if x_axis != 'Combination' else None,
-        title=f'Irrigation Impact on {field_name_mapping[y_axis]}',
-        labels={x_axis: x_axis, y_axis: field_name_mapping[y_axis]},
-        template="plotly_white"
-    )
-    st.plotly_chart(fig)
-
 elif visualization_type == "Heatmap (Correlations)":
     st.header("Heatmap (Correlations)")
     correlation_data = filtered_data[[
