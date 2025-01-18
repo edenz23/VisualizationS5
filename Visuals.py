@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import datetime
+from frond_growth_rate_prediction import run_prediction
 
 # Load data
 def load_data():
@@ -70,7 +71,7 @@ filtered_data = filtered_data[(filtered_data['100'].isin([1 if p == '100' else 0
 # Visualization options
 st.sidebar.header("Visualization Options")
 visualization_type = st.sidebar.selectbox("Select Visualization Type:", options=[
-    "Seasonal Trends", "Heatmap (Correlations)", "Tree Health Visualization", "Combination Comparisons", "Correlation to Frond Growth Rate"
+    "Seasonal Trends", "Heatmap (Correlations)", "Tree Health Visualization", "Combination Comparisons", "Correlation to Frond Growth Rate", "Run Prediction"
 ])
 
 
@@ -240,6 +241,7 @@ elif visualization_type == "Combination Comparisons":
     # Select multiple combinations for scatter plot
     selected_combinations = st.multiselect(
         "Select Combinations:",
+
         options=combinations_map,
         default=combinations_map
     )
@@ -395,5 +397,57 @@ elif visualization_type == "Correlation to Frond Growth Rate":
     else:
         st.write("Select at least one column to calculate the correlation.")
 
+elif visualization_type == "Run Prediction":
+    st.header("Run Frond Growth Rate Prediction")
 
+    # Input fields for prediction
+    irrigation_values = st.text_input(
+        "Irrigation Values (Comma-separated liters per day):",
+        placeholder="e.g., 5, 7, 6"
+    )
+    vpd = st.number_input(
+        "Vapor Pressure Deficit (VPD) Today:",
+        min_value=0.0, step=0.1, format="%.2f"
+    )
+    tdr_salt_80 = st.number_input(
+        "TDR Salt at 80cm:",
+        min_value=0.0, step=0.1, format="%.2f"
+    )
+    prediction_start_date = st.date_input(
+        "Prediction Start Date:",
+        value=datetime.today()
+    )
+
+    # Run prediction logic
+    if st.button("Run Prediction"):
+        try:
+            # Parse irrigation values
+            irrigation_values_list = [float(x.strip()) for x in irrigation_values.split(",")]
+
+            # Call the prediction function
+            predictions, vpd_model_eval, tdr_model_eval, train_model_eval = run_prediction(
+                irrigation_values=irrigation_values_list,
+                vpd=vpd,
+                tdr_salt=tdr_salt_80,
+                start_date=prediction_start_date
+            )
+
+            st.title("Display DataFrame in Streamlit")
+            st.dataframe(predictions)  # Interactive table
+
+            # Display model evaluations
+            st.subheader("Model Evaluation")
+            eval_data = {
+                "Metric": ["MAE", "MSE", "R2"],
+                "Frond growth rate prediction model": [train_model_eval["MAE"], train_model_eval["MSE"], train_model_eval["R2"]],
+                "VPD Model": [vpd_model_eval["MAE"], vpd_model_eval["MSE"], vpd_model_eval["R2"]],
+                "TDR Model": [tdr_model_eval["MAE"], tdr_model_eval["MSE"], tdr_model_eval["R2"]]
+            }
+            eval_df = pd.DataFrame(eval_data)
+            st.table(eval_df)  # Static table
+
+
+
+        except Exception as e:
+            st.error(f"Error running prediction: {e}")
 
