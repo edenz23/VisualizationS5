@@ -298,68 +298,46 @@ elif visualization_type == "Combination Comparisons":
         # Allow user to select X and Y axes for scatter plot
         x_axis_options = [
             'date', 'tensiometer_40', 'tensiometer_80', 'tdr_water_40',
-            'tdr_water_80', 'frond_growth_rate', 'eto (mm/day)', 'vpd (kPa)', 'irrigation'
+            'tdr_water_80', 'frond_growth_rate', 'eto (mm/day)', 'vpd (kPa)', 'irrigation', "tdr_salt_40", "tdr_salt_80"
         ]
         x_axis = st.selectbox("Select X-Axis:", options=x_axis_options, index=0)
         y_axis = st.selectbox("Select Y-Axis:", options=x_axis_options, index=1)
 
-        # Define a specific shape for each combination
-        symbol_map = {
-            "100% & D": "circle",
-            "100% & E": "square",
-            "50% & D": "diamond",
-            "50% & E": "cross",
-            "Only D": "x",
-            "Only E": "triangle-up",
-            "Only 50": "triangle-down",
-            "Only 100": "star"
-        }
-
         # Normalize the date column for color mapping
         filtered_combinations['date_numeric'] = (
-                    filtered_combinations['date'] - filtered_combinations['date'].min()).dt.days
+                filtered_combinations['date'] - filtered_combinations['date'].min()).dt.days
 
-        # Plot the scatter chart with shapes for categories and color for time
+        # Plot the scatter chart with colors for categories and time progression
         fig = px.scatter(
             filtered_combinations,
             x=x_axis,
             y=y_axis,
-            color='date_numeric',  # Color points by normalized date
-            symbol='Combination',  # Use shapes to differentiate categories
-            symbol_map=symbol_map,  # Map each combination to a specific shape
+            color='Combination',  # Use color to differentiate categories
             title=f'Scatter Plot: {x_axis} vs {y_axis}',
             labels={
                 x_axis: x_axis,
                 y_axis: y_axis,
                 'date_numeric': 'Date (Oldest to Newest)',
-                'Combination': 'Legend (Shapes)'
+                'Combination': 'Legend (Colors)'
             },
-            color_continuous_scale=['green', 'brown'],  # Green for oldest, brown for newest
+            color_discrete_sequence=px.colors.qualitative.Set1,  # Use a predefined color palette
             template="plotly_white"
         )
 
         # Update the layout to position legends
         fig.update_layout(
-            # Positioning the symbol legend
             legend=dict(
-                yanchor="bottom",  # Anchor at the top
-                y=0,  # Position above the plot
-                xanchor="left",  # Align to the left
-                bgcolor="gray",  # Optional: Set a black background
-                bordercolor="white",  # Optional: Add a white border
-                x=50  # Slight left margin
-            ),
-            # Positioning the color bar
-            coloraxis_colorbar=dict(
-                title="Date Progression",  # Title for the color bar
-                yanchor="bottom",  # Anchor at the top
-                y=5,  # Position below the symbol legend
-                xanchor="left",  # Align to the left
-                x=50  # Match symbol legend alignment
+                yanchor="top",  # Anchor at the top
+                y=1,  # Position at the top
+                xanchor="right",  # Align to the left
+                bgcolor="gray",  # Optional: Set a white background
+                bordercolor="black",  # Optional: Add a black border
+                x=5  # Slight left margin
             )
         )
 
         st.plotly_chart(fig)
+
 
     # Trend line plot
     elif plot_type == "Trend Line":
