@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 from datetime import datetime
 from frond_growth_rate_prediction import run_prediction
+from sklearn.preprocessing import MinMaxScaler
 
 # Load data
 def load_data():
@@ -30,7 +31,8 @@ field_name_mapping = {
     "D": "Dropper Type D",
     "E": "Dropper Type E",
     "100": "100% Water Supplied",
-    "50": "50% Water Supplied"
+    "50": "50% Water Supplied",
+    "date": "Date"
 }
 
 # Define metric groups for Seasonal Trends
@@ -129,23 +131,29 @@ elif visualization_type == "Seasonal Trends":
 
     # Reverse mapping for the selected metrics
     metrics = [reverse_mapping[selected_metric] for selected_metric in selected_metrics]
+    scaled_df = filtered_data.copy()
+    scaler = MinMaxScaler()
+    for m in range(len(metrics)):  # normalize field for graph
+        if filtered_data[metrics[m]].max() > 1:
+            scaled_df["scaled " + metrics[m]] = scaler.fit_transform(filtered_data[metrics[m]].values.reshape(-1, 1))
+            metrics[m] = "scaled " + metrics[m]
 
     # Group by the selected timescale
     if time_scale == "Month":
-        trend_data = filtered_data.groupby('month')[metrics].mean().reset_index()
+        trend_data = scaled_df.groupby('month')[metrics].mean().reset_index()
         x_axis = 'month'
         x_labels = [datetime(1900, m, 1).strftime('%B') for m in range(3, 11)]
     elif time_scale == "Week":
-        filtered_data['week'] = filtered_data['date'].dt.isocalendar().week
-        trend_data = filtered_data.groupby('week')[metrics].mean().reset_index()
+        scaled_df['week'] = scaled_df['date'].dt.isocalendar().week
+        trend_data = scaled_df.groupby('week')[metrics].mean().reset_index()
         x_axis = 'week'
         x_labels = None
     elif time_scale == "Day":
-        trend_data = filtered_data.groupby('date')[metrics].mean().reset_index()
+        trend_data = scaled_df.groupby('date')[metrics].mean().reset_index()
         x_axis = 'date'
         x_labels = None
     else:  # All Data Points
-        trend_data = filtered_data
+        trend_data = scaled_df
         x_axis = 'date'
         x_labels = None
 
@@ -208,29 +216,46 @@ elif visualization_type == "Heatmap (Correlations)":
 elif visualization_type == "Tree Health Visualization":
     st.header("Tree Health Visualization")
     tree_metric = st.selectbox("Select Metric for Tree Health:", options=[
-        "Frond Growth Rate", "100% Water Supplied", "50% Water Supplied", "Dropper Type D", "Dropper Type E"
+        "Tensiometer at 40cm", "Tensiometer at 80cm",
+        "TDR Water at 40cm", "TDR Water at 80cm",
+        "TDR Salt at 40cm", "TDR Salt at 80cm",
+        "Evapotranspiration (mm/day)", "Vapor Pressure Deficit (kPa)",
+        "Irrigation Amount"
     ])
     metric_key = reverse_mapping.get(tree_metric, "frond_growth_rate")
-    health_data = filtered_data.groupby('month')[metric_key].mean().reset_index()
+    growth_key = reverse_mapping.get("frond_growth_rate", 0)
+    sensor_data = filtered_data.groupby('month')[metric_key].mean().reset_index()
+    health_data = filtered_data.groupby('month')["frond_growth_rate"].mean().reset_index()
+    tmp_df = pd.merge(sensor_data, health_data, on='month')
 
     fig = px.scatter(
-        health_data,
+        tmp_df,
         x='month',
         y=metric_key,
-        size=metric_key,
-        color=metric_key,
-        title=f'Tree Health Based on {tree_metric}',
-        labels={'month': 'Month', metric_key: tree_metric},
+        size="frond_growth_rate",
+        color="frond_growth_rate",
+        title=f'Tree Frond growth rate based on - {tree_metric}',
+        labels={'month': 'Month', metric_key: tree_metric, "frond_growth_rate": "Frond Growth Rate"},
         template="plotly_white"
     )
-    fig.update_xaxes(tickmode='array', tickvals=list(range(3, 11)), ticktext=[datetime(1900, m, 1).strftime('%B') for m in range(3, 11)])
+    fig.update_xaxes(tickmode='array', tickvals=list(range(3, 11)),
+                     ticktext=[datetime(1900, m, 1).strftime('%B') for m in range(3, 11)])
     st.plotly_chart(fig)
 
 elif visualization_type == "Combination Comparisons":
     st.header("Combination Comparisons")
 
-    # Dropdown for plot type (box plot, scatter plot, trend line)
-    plot_type = st.selectbox("Select Plot Type:", options=["Box Plot", "Scatter Plot", "Trend Line"])
+    # radio selection for plot type (box plot, scatter plot, trend line)
+    plot_type = st.radio(
+        "Select Plot Type:",
+        ["Box Plot", "Scatter Plot", "Trend Line"],
+        captions=[
+            "Distributions of combinations",
+            "Relationships between two fields",
+            "Trends of sensors of time",
+        ],
+        horizontal=True
+    )
 
     # Define possible combinations including all 8 groups
     def create_combinations(row):
@@ -268,9 +293,8 @@ elif visualization_type == "Combination Comparisons":
     # Select multiple combinations for scatter plot
     selected_combinations = st.multiselect(
         "Select Combinations:",
-
         options=combinations_map,
-        default=combinations_map
+        default=combinations_map[:4]
     )
 
     # Filter data based on selected combinations
@@ -278,7 +302,7 @@ elif visualization_type == "Combination Comparisons":
 
     # Box plot
     if plot_type == "Box Plot":
-        y_axis = st.selectbox("Select Y-Axis:", options=[field_name_mapping[k] for k in [
+        y_axis = st.selectbox("Select Sensor Measurement For Combination:", options=[field_name_mapping[k] for k in [
             "frond_growth_rate", "tensiometer_40", "tensiometer_80", "tdr_water_40", "tdr_water_80"]])
         y_axis = reverse_mapping[y_axis]
 
@@ -300,8 +324,9 @@ elif visualization_type == "Combination Comparisons":
             'date', 'tensiometer_40', 'tensiometer_80', 'tdr_water_40',
             'tdr_water_80', 'frond_growth_rate', 'eto (mm/day)', 'vpd (kPa)', 'irrigation', "tdr_salt_40", "tdr_salt_80"
         ]
-        x_axis = st.selectbox("Select X-Axis:", options=x_axis_options, index=0)
-        y_axis = st.selectbox("Select Y-Axis:", options=x_axis_options, index=1)
+        x_axis = st.selectbox("Select X-Axis Measurement:", options=[field_name_mapping[k] for k in x_axis_options], index=0)
+        x_axis_options.remove(reverse_mapping[x_axis])  # have it so the user cant choose the same field for x and y axis
+        y_axis = st.selectbox("Select Y-Axis Measurement:", options=[field_name_mapping[k] for k in x_axis_options], index=1)
 
         # Normalize the date column for color mapping
         filtered_combinations['date_numeric'] = (
@@ -310,13 +335,13 @@ elif visualization_type == "Combination Comparisons":
         # Plot the scatter chart with colors for categories and time progression
         fig = px.scatter(
             filtered_combinations,
-            x=x_axis,
-            y=y_axis,
+            x=reverse_mapping[x_axis],
+            y=reverse_mapping[y_axis],
             color='Combination',  # Use color to differentiate categories
             title=f'Scatter Plot: {x_axis} vs {y_axis}',
             labels={
-                x_axis: x_axis,
-                y_axis: y_axis,
+                reverse_mapping[x_axis]: x_axis,
+                reverse_mapping[y_axis]: y_axis,
                 'date_numeric': 'Date (Oldest to Newest)',
                 'Combination': 'Legend (Colors)'
             },
@@ -338,7 +363,6 @@ elif visualization_type == "Combination Comparisons":
 
         st.plotly_chart(fig)
 
-
     # Trend line plot
     elif plot_type == "Trend Line":
         y_axis = st.selectbox("Select Y-Axis:", options=[field_name_mapping[k] for k in [
@@ -355,6 +379,7 @@ elif visualization_type == "Combination Comparisons":
             labels={'date': 'Date', y_axis: field_name_mapping[y_axis]},
             template="plotly_white"
         )
+        fig.update_traces(opacity=0.6)
         st.plotly_chart(fig)
 
 elif visualization_type == "Correlation to Frond Growth Rate":
