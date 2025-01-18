@@ -43,8 +43,12 @@ metric_groups = {
 # Reverse mapping for user-friendly names
 reverse_mapping = {v: k for k, v in field_name_mapping.items()}
 
-
-st.title("Interactive Irrigation Data Visualizations")
+# Sidebar Navigation
+st.sidebar.title("Navigation")
+visualization_type = st.sidebar.radio("Select Page:", options=[
+    "Welcome Page", "Seasonal Trends", "Heatmap (Correlations)", "Tree Health Visualization", "Combination Comparisons",
+    "Correlation to Frond Growth Rate", "Run Prediction"
+])
 
 # Filters
 st.sidebar.header("Filters")
@@ -68,15 +72,38 @@ filtered_data = filtered_data[filtered_data['month'].isin(selected_month)]
 filtered_data = filtered_data[(filtered_data['D'].isin([1 if d == 'D' else 0 for d in selected_dropper])) | (filtered_data['E'].isin([1 if e == 'E' else 0 for e in selected_dropper]))]
 filtered_data = filtered_data[(filtered_data['100'].isin([1 if p == '100' else 0 for p in selected_percentage])) | (filtered_data['50'].isin([1 if p == '50' else 0 for p in selected_percentage]))]
 
-# Visualization options
-st.sidebar.header("Visualization Options")
-visualization_type = st.sidebar.selectbox("Select Visualization Type:", options=[
-    "Seasonal Trends", "Heatmap (Correlations)", "Tree Health Visualization", "Combination Comparisons", "Correlation to Frond Growth Rate", "Run Prediction"
-])
+if visualization_type == "Welcome Page":
+    st.title("Welcome to the Interactive Irrigation Data App")
 
+    col1, col2 = st.columns([2, 1])  # Adjust the ratio to control column widths
+
+    with col1:
+        st.markdown(
+            """
+            ### Overview
+            This app provides interactive visualizations and predictions for irrigation and frond growth rate data. 
+            Use the sidebar to navigate through various sections, explore the data, and generate insights.
+
+            ### Features:
+            - **Seasonal Trends**: Visualize how key metrics change over time.
+            - **Heatmaps**: Explore correlations between different parameters.
+            - **Tree Health Visualizations**: Gain insights into tree health based on irrigation and other metrics.
+            - **Predictions**: Predict frond growth rates using advanced models.
+
+            ### Instructions:
+            1. Use the filters in the sidebar to customize the data view.
+            2. Navigate to a visualization type or run predictions using the top navigation menu.
+            3. Analyze the insights and save any visualizations if needed.
+
+            Enjoy exploring your data!
+            """
+        )
+
+    with col2:
+        st.image("welcome_image.png", width=250)  # Adjust the width as needed
 
 # Visualization logic
-if visualization_type == "Seasonal Trends":
+elif visualization_type == "Seasonal Trends":
     st.header("Seasonal Trends")
 
     # Create two columns for side-by-side dropdowns
@@ -445,8 +472,6 @@ elif visualization_type == "Run Prediction":
             }
             eval_df = pd.DataFrame(eval_data)
             st.table(eval_df)  # Static table
-
-
 
         except Exception as e:
             st.error(f"Error running prediction: {e}")
