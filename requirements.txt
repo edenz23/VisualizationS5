@@ -1,5 +1,4 @@
 datetime
-frond_growth_rate_prediction
 pandas
 plotly
 sklearn
