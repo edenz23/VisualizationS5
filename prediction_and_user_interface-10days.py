@@ -1,7 +1,4 @@
-import os
-
 import pandas as pd
-import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from xgboost import XGBRegressor
@@ -11,7 +8,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 
 # Path to the dataset (update the path as needed)
-data_path = 'final_table_with_all_sensors_and_irrigation.csv'
+data_path = 'sensors_irrigation_df.csv'
 data = pd.read_csv(data_path)
 
 # Feature engineering for the dataset

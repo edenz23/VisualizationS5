@@ -2,16 +2,15 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import datetime
-import statsmodels
 
 # Load data
 def load_data():
-    file_path = 'final_table_with_all_sensors_and_irrigation.csv'  # Replace with your file path
-    data = pd.read_csv(file_path)
-    data['date'] = pd.to_datetime(data['date'])  # Ensure date is datetime type
-    data['month'] = data['date'].dt.month  # Extract month for analysis
-    data = data[data['month'].between(3, 10)]  # Filter months to March-October
-    return data
+    file_path = 'sensors_irrigation_df.csv'  # Replace with your file path
+    sensors_irrigation_df = pd.read_csv(file_path)
+    sensors_irrigation_df['date'] = pd.to_datetime(sensors_irrigation_df['date'])  # Ensure date is datetime type
+    sensors_irrigation_df['month'] = sensors_irrigation_df['date'].dt.month  # Extract month for analysis
+    sensors_irrigation_df = sensors_irrigation_df[sensors_irrigation_df['month'].between(3, 10)]  # Filter months to March-October
+    return sensors_irrigation_df
 
 data = load_data()
 
@@ -103,7 +102,7 @@ if visualization_type == "Seasonal Trends":
     # Reverse mapping for the selected metrics
     metrics = [reverse_mapping[selected_metric] for selected_metric in selected_metrics]
 
-    # Group by the selected time scale
+    # Group by the selected timescale
     if time_scale == "Month":
         trend_data = filtered_data.groupby('month')[metrics].mean().reset_index()
         x_axis = 'month'
