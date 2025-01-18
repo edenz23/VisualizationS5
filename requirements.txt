@@ -4,3 +4,4 @@ plotly
 sklearn
 streamlit
 xgboost
+sklearn
