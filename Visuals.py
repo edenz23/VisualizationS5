@@ -48,12 +48,13 @@ reverse_mapping = {v: k for k, v in field_name_mapping.items()}
 # Sidebar Navigation
 st.sidebar.title("Navigation")
 visualization_type = st.sidebar.radio("Select Page:", options=[
-    "Welcome Page", "Seasonal Trends", "Heatmap (Correlations)", "Tree Health Visualization", "Combination Comparisons",
+    "Welcome Page", "Seasonal Trends", "Combination Comparisons", "Tree Health Visualization", "Heatmap (Correlations)",
     "Correlation to Frond Growth Rate", "Run Prediction"
 ])
 
 # Filters
 st.sidebar.header("Filters")
+
 selected_month = st.sidebar.multiselect(
     "Select Month(s):",
     options=range(3, 11),
@@ -77,36 +78,56 @@ filtered_data = filtered_data[(filtered_data['100'].isin([1 if p == '100' else 0
 if visualization_type == "Welcome Page":
     st.title("Welcome to the Interactive Irrigation Data App")
 
+    st.markdown(
+        """
+        ### Overview
+        This app provides interactive visualizations and predictions for irrigation and frond growth rate data. 
+        Use the sidebar to navigate through various sections, explore the data, and generate insights.
+        
+        General explanation of sensors and terms:
+        - Tensiometer: A sensor that measures the surface tension of liquids.
+        - TDR: A sensor that measures moisture content indirectly based on the correlation to electric and dielectric properties of materials. can also be used to measure salt content.
+        - Evapotranspiration: An estimate of the loss of water from both plants and the soil.
+        - Vapor Pressure Deficit: The difference between the amount of moisture that's actually in the air and the amount of moisture that air could hold at saturation.
+        - Frond Growth Rate: A sensor that measures the growth of the frond in cm.
+        - Irrigation Amount: The amount of irrigation in Liters.
+        - D/E: 2 different dropper types. Each Date tree has either D or E dropper irrigation type.
+        - 50%/100%: 2 different irrigation amounts, 50 is 50% of the recommended amount of water supplied, and 100 is 100%. Each Date tree has either 50% or 100% water supplied.
+        
+
+        ### Instructions:
+        ##### Side panel 
+        The side panel is used to both navigate between the Dashboard visualizations, and to set general filters and data constraints.
+        1. Navigation:
+        under Navigation you can choose which visualization or prediction model you want to use.
+        2. Filters:
+         under Filters you can select the data constrains that the visualizations and models will work on.
+         - 'Season'/'Month' - select the time frame you are interested in. Season has priority, if a season is selected, it will apply first.
+         - 'Dropper Type' - select which of the dropper types entries you want to view, can be used if you want isolate specific results.
+         - 'Water precentage' - select which of the water supplied amounts you want to view, can be used if you want isolate specific results.
+         
+         ##### Filters for each visualization
+         There are additional filters and user-input selection unique for each visualization.
+         These filters apply only to the currently selected visualization AND will apply to the already filtered data entries from the side-panel filteres.
+        
+        
+        ### Important Notes:
+        - As you will be able to see, the visualizations shows data from March to October. 
+        This is because our raw data entries are from these month's only and that's when the experiment took place.
+        - Due to the above reason, the 'Month' and 'Season' filter selection doesnt include the winter options and the missing Month's.
+        """
+    )
+
     col1, col2 = st.columns([2, 1])  # Adjust the ratio to control column widths
-
     with col1:
-        st.markdown(
-            """
-            ### Overview
-            This app provides interactive visualizations and predictions for irrigation and frond growth rate data. 
-            Use the sidebar to navigate through various sections, explore the data, and generate insights.
-
-            ### Features:
-            - **Seasonal Trends**: Visualize how key metrics change over time.
-            - **Heatmaps**: Explore correlations between different parameters.
-            - **Tree Health Visualizations**: Gain insights into tree health based on irrigation and other metrics.
-            - **Predictions**: Predict frond growth rates using advanced models.
-
-            ### Instructions:
-            1. Use the filters in the sidebar to customize the data view.
-            2. Navigate to a visualization type or run predictions using the top navigation menu.
-            3. Analyze the insights and save any visualizations if needed.
-
-            Enjoy exploring your data!
-            """
-        )
-
+        st.markdown("### Enjoy exploring your data!")
     with col2:
-        st.image("welcome_image.png", width=250)  # Adjust the width as needed
+        st.image("welcome_image.png", width=500)  # Adjust the width as needed
 
 # Visualization logic
 elif visualization_type == "Seasonal Trends":
     st.header("Seasonal Trends")
+    st.write("General overview of how key metrics change over time, with the ability to choose time-scale specification.")
 
     # Create two columns for side-by-side dropdowns
     col1, col2 = st.columns(2)
@@ -172,6 +193,7 @@ elif visualization_type == "Seasonal Trends":
 
 elif visualization_type == "Heatmap (Correlations)":
     st.header("Heatmap (Correlations)")
+    st.write("Explore correlations between different parameters.")
 
     # List of columns available for selection
     available_columns = [
@@ -215,6 +237,8 @@ elif visualization_type == "Heatmap (Correlations)":
 
 elif visualization_type == "Tree Health Visualization":
     st.header("Tree Health Visualization")
+    st.write("View the impact of different parameters on the tree health (measured by the frond growth rate) over time.")
+
     tree_metric = st.selectbox("Select Metric for Tree Health:", options=[
         "Tensiometer at 40cm", "Tensiometer at 80cm",
         "TDR Water at 40cm", "TDR Water at 80cm",
@@ -244,6 +268,8 @@ elif visualization_type == "Tree Health Visualization":
 
 elif visualization_type == "Combination Comparisons":
     st.header("Combination Comparisons")
+    st.write("Compare different test-group results - 50%/100% water supplied, D/E dropper type.")
+    st.write("Here you can choose different visualizations to see the effects and relationships between test-groups and sensors. Alternativly, you can choose to focus only on specific aspects like water % or dropper type.")
 
     # radio selection for plot type (box plot, scatter plot, trend line)
     plot_type = st.radio(
@@ -319,14 +345,19 @@ elif visualization_type == "Combination Comparisons":
 
     # Scatter plot
     elif plot_type == "Scatter Plot":
-        # Allow user to select X and Y axes for scatter plot
-        x_axis_options = [
-            'date', 'tensiometer_40', 'tensiometer_80', 'tdr_water_40',
-            'tdr_water_80', 'frond_growth_rate', 'eto (mm/day)', 'vpd (kPa)', 'irrigation', "tdr_salt_40", "tdr_salt_80"
-        ]
-        x_axis = st.selectbox("Select X-Axis Measurement:", options=[field_name_mapping[k] for k in x_axis_options], index=0)
-        x_axis_options.remove(reverse_mapping[x_axis])  # have it so the user cant choose the same field for x and y axis
-        y_axis = st.selectbox("Select Y-Axis Measurement:", options=[field_name_mapping[k] for k in x_axis_options], index=1)
+        col1, col2 = st.columns(2)
+
+        with col1:
+            x_axis_options = [
+                'date', 'tensiometer_40', 'tensiometer_80', 'tdr_water_40',
+                'tdr_water_80', 'frond_growth_rate', 'eto (mm/day)', 'vpd (kPa)', 'irrigation', "tdr_salt_40",
+                "tdr_salt_80"
+            ]
+            x_axis = st.selectbox("Select X-Axis Measurement:", options=[field_name_mapping[k] for k in x_axis_options], index=0)
+            x_axis_options.remove(reverse_mapping[x_axis])  # have it so the user cant choose the same field for x and y axis
+
+        with col2:
+            y_axis = st.selectbox("Select Y-Axis Measurement:", options=[field_name_mapping[k] for k in x_axis_options], index=1)
 
         # Normalize the date column for color mapping
         filtered_combinations['date_numeric'] = (
@@ -429,6 +460,7 @@ elif visualization_type == "Correlation to Frond Growth Rate":
 
 elif visualization_type == "Run Prediction":
     st.header("Run Frond Growth Rate Prediction")
+    st.write("Predict frond growth rates using advanced models.")
 
     # Input fields for prediction
     irrigation_values = st.text_input(
