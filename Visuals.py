@@ -437,7 +437,7 @@ elif visualization_type == "Run Prediction":
                 start_date=prediction_start_date
             )
 
-            st.title("Display DataFrame in Streamlit")
+            st.title("DataFrame:")
             st.dataframe(predictions)  # Interactive table
 
             # Display model evaluations
