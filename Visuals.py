@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 from datetime import datetime
 from frond_growth_rate_prediction import run_prediction
+from sklearn.preprocessing import MinMaxScaler
 
 # Load data
 def load_data():
@@ -30,7 +31,8 @@ field_name_mapping = {
     "D": "Dropper Type D",
     "E": "Dropper Type E",
     "100": "100% Water Supplied",
-    "50": "50% Water Supplied"
+    "50": "50% Water Supplied",
+    "date": "Date"
 }
 
 # Define metric groups for Seasonal Trends
@@ -46,12 +48,13 @@ reverse_mapping = {v: k for k, v in field_name_mapping.items()}
 # Sidebar Navigation
 st.sidebar.title("Navigation")
 visualization_type = st.sidebar.radio("Select Page:", options=[
-    "Welcome Page", "Seasonal Trends", "Heatmap (Correlations)", "Tree Health Visualization", "Combination Comparisons",
+    "Welcome Page", "Seasonal Trends", "Combination Comparisons", "Tree Health Visualization", "Heatmap (Correlations)",
     "Run Prediction"
 ])
 
 # Filters
 st.sidebar.header("Filters")
+
 selected_month = st.sidebar.multiselect(
     "Select Month(s):",
     options=range(3, 11),
@@ -75,36 +78,56 @@ filtered_data = filtered_data[(filtered_data['100'].isin([1 if p == '100' else 0
 if visualization_type == "Welcome Page":
     st.title("Welcome to the Interactive Irrigation Data App")
 
+    st.markdown(
+        """
+        ### Overview
+        This app provides interactive visualizations and predictions for irrigation and frond growth rate data. 
+        Use the sidebar to navigate through various sections, explore the data, and generate insights.
+        
+        General explanation of sensors and terms:
+        - Tensiometer: A sensor that measures the surface tension of liquids.
+        - TDR: A sensor that measures moisture content indirectly based on the correlation to electric and dielectric properties of materials. can also be used to measure salt content.
+        - Evapotranspiration: An estimate of the loss of water from both plants and the soil.
+        - Vapor Pressure Deficit: The difference between the amount of moisture that's actually in the air and the amount of moisture that air could hold at saturation.
+        - Frond Growth Rate: A sensor that measures the growth of the frond in cm.
+        - Irrigation Amount: The amount of irrigation in Liters.
+        - D/E: 2 different dropper types. Each Date tree has either D or E dropper irrigation type.
+        - 50%/100%: 2 different irrigation amounts, 50 is 50% of the recommended amount of water supplied, and 100 is 100%. Each Date tree has either 50% or 100% water supplied.
+        
+
+        ### Instructions:
+        ##### Side panel 
+        The side panel is used to both navigate between the Dashboard visualizations, and to set general filters and data constraints.
+        1. Navigation:
+        under Navigation you can choose which visualization or prediction model you want to use.
+        2. Filters:
+         under Filters you can select the data constrains that the visualizations and models will work on.
+         - 'Season'/'Month' - select the time frame you are interested in. Season has priority, if a season is selected, it will apply first.
+         - 'Dropper Type' - select which of the dropper types entries you want to view, can be used if you want isolate specific results.
+         - 'Water precentage' - select which of the water supplied amounts you want to view, can be used if you want isolate specific results.
+         
+         ##### Filters for each visualization
+         There are additional filters and user-input selection unique for each visualization.
+         These filters apply only to the currently selected visualization AND will apply to the already filtered data entries from the side-panel filteres.
+        
+        
+        ### Important Notes:
+        - As you will be able to see, the visualizations shows data from March to October. 
+        This is because our raw data entries are from these month's only and that's when the experiment took place.
+        - Due to the above reason, the 'Month' and 'Season' filter selection doesnt include the winter options and the missing Month's.
+        """
+    )
+
     col1, col2 = st.columns([2, 1])  # Adjust the ratio to control column widths
-
     with col1:
-        st.markdown(
-            """
-            ### Overview
-            This app provides interactive visualizations and predictions for irrigation and frond growth rate data. 
-            Use the sidebar to navigate through various sections, explore the data, and generate insights.
-
-            ### Features:
-            - **Seasonal Trends**: Visualize how key metrics change over time.
-            - **Heatmaps**: Explore correlations between different parameters.
-            - **Tree Health Visualizations**: Gain insights into tree health based on irrigation and other metrics.
-            - **Predictions**: Predict frond growth rates using advanced models.
-
-            ### Instructions:
-            1. Use the filters in the sidebar to customize the data view.
-            2. Navigate to a visualization type or run predictions using the top navigation menu.
-            3. Analyze the insights and save any visualizations if needed.
-
-            Enjoy exploring your data!
-            """
-        )
-
+        st.markdown("### Enjoy exploring your data!")
     with col2:
-        st.image("welcome_image.png", width=250)  # Adjust the width as needed
+        st.image("welcome_image.png", width=500)  # Adjust the width as needed
 
 # Visualization logic
 elif visualization_type == "Seasonal Trends":
     st.header("Seasonal Trends")
+    st.write("General overview of how key metrics change over time, with the ability to choose time-scale specification.")
 
     # Create two columns for side-by-side dropdowns
     col1, col2 = st.columns(2)
@@ -129,23 +152,29 @@ elif visualization_type == "Seasonal Trends":
 
     # Reverse mapping for the selected metrics
     metrics = [reverse_mapping[selected_metric] for selected_metric in selected_metrics]
+    scaled_df = filtered_data.copy()
+    scaler = MinMaxScaler()
+    for m in range(len(metrics)):  # normalize field for graph
+        if filtered_data[metrics[m]].max() > 1:
+            scaled_df["scaled " + metrics[m]] = scaler.fit_transform(filtered_data[metrics[m]].values.reshape(-1, 1))
+            metrics[m] = "scaled " + metrics[m]
 
     # Group by the selected timescale
     if time_scale == "Month":
-        trend_data = filtered_data.groupby('month')[metrics].mean().reset_index()
+        trend_data = scaled_df.groupby('month')[metrics].mean().reset_index()
         x_axis = 'month'
         x_labels = [datetime(1900, m, 1).strftime('%B') for m in range(3, 11)]
     elif time_scale == "Week":
-        filtered_data['week'] = filtered_data['date'].dt.isocalendar().week
-        trend_data = filtered_data.groupby('week')[metrics].mean().reset_index()
+        scaled_df['week'] = scaled_df['date'].dt.isocalendar().week
+        trend_data = scaled_df.groupby('week')[metrics].mean().reset_index()
         x_axis = 'week'
         x_labels = None
     elif time_scale == "Day":
-        trend_data = filtered_data.groupby('date')[metrics].mean().reset_index()
+        trend_data = scaled_df.groupby('date')[metrics].mean().reset_index()
         x_axis = 'date'
         x_labels = None
     else:  # All Data Points
-        trend_data = filtered_data
+        trend_data = scaled_df
         x_axis = 'date'
         x_labels = None
 
@@ -164,6 +193,7 @@ elif visualization_type == "Seasonal Trends":
 
 elif visualization_type == "Heatmap (Correlations)":
     st.header("Heatmap (Correlations)")
+    st.write("Explore correlations between different parameters.")
 
     # List of columns available for selection
     available_columns = [
@@ -207,30 +237,51 @@ elif visualization_type == "Heatmap (Correlations)":
 
 elif visualization_type == "Tree Health Visualization":
     st.header("Tree Health Visualization")
+    st.write("View the impact of different parameters on the tree health (measured by the frond growth rate) over time.")
+
     tree_metric = st.selectbox("Select Metric for Tree Health:", options=[
-        "Frond Growth Rate", "100% Water Supplied", "50% Water Supplied", "Dropper Type D", "Dropper Type E"
+        "Tensiometer at 40cm", "Tensiometer at 80cm",
+        "TDR Water at 40cm", "TDR Water at 80cm",
+        "TDR Salt at 40cm", "TDR Salt at 80cm",
+        "Evapotranspiration (mm/day)", "Vapor Pressure Deficit (kPa)",
+        "Irrigation Amount"
     ])
     metric_key = reverse_mapping.get(tree_metric, "frond_growth_rate")
-    health_data = filtered_data.groupby('month')[metric_key].mean().reset_index()
+    growth_key = reverse_mapping.get("frond_growth_rate", 0)
+    sensor_data = filtered_data.groupby('month')[metric_key].mean().reset_index()
+    health_data = filtered_data.groupby('month')["frond_growth_rate"].mean().reset_index()
+    tmp_df = pd.merge(sensor_data, health_data, on='month')
 
     fig = px.scatter(
-        health_data,
+        tmp_df,
         x='month',
         y=metric_key,
-        size=metric_key,
-        color=metric_key,
-        title=f'Tree Health Based on {tree_metric}',
-        labels={'month': 'Month', metric_key: tree_metric},
+        size="frond_growth_rate",
+        color="frond_growth_rate",
+        title=f'Tree Frond growth rate based on - {tree_metric}',
+        labels={'month': 'Month', metric_key: tree_metric, "frond_growth_rate": "Frond Growth Rate"},
         template="plotly_white"
     )
-    fig.update_xaxes(tickmode='array', tickvals=list(range(3, 11)), ticktext=[datetime(1900, m, 1).strftime('%B') for m in range(3, 11)])
+    fig.update_xaxes(tickmode='array', tickvals=list(range(3, 11)),
+                     ticktext=[datetime(1900, m, 1).strftime('%B') for m in range(3, 11)])
     st.plotly_chart(fig)
 
 elif visualization_type == "Combination Comparisons":
     st.header("Combination Comparisons")
+    st.write("Compare different test-group results - 50%/100% water supplied, D/E dropper type.")
+    st.write("Here you can choose different visualizations to see the effects and relationships between test-groups and sensors. Alternativly, you can choose to focus only on specific aspects like water % or dropper type.")
 
-    # Dropdown for plot type (box plot, scatter plot, trend line)
-    plot_type = st.selectbox("Select Plot Type:", options=["Box Plot", "Scatter Plot", "Trend Line"])
+    # radio selection for plot type (box plot, scatter plot, trend line)
+    plot_type = st.radio(
+        "Select Plot Type:",
+        ["Box Plot", "Scatter Plot", "Trend Line"],
+        captions=[
+            "Distributions of combinations",
+            "Relationships between two fields",
+            "Trends of sensors of time",
+        ],
+        horizontal=True
+    )
 
     # Define possible combinations including all 8 groups
     def create_combinations(row):
@@ -268,9 +319,8 @@ elif visualization_type == "Combination Comparisons":
     # Select multiple combinations for scatter plot
     selected_combinations = st.multiselect(
         "Select Combinations:",
-
         options=combinations_map,
-        default=combinations_map
+        default=combinations_map[:4]
     )
 
     # Filter data based on selected combinations
@@ -278,7 +328,7 @@ elif visualization_type == "Combination Comparisons":
 
     # Box plot
     if plot_type == "Box Plot":
-        y_axis = st.selectbox("Select Y-Axis:", options=[field_name_mapping[k] for k in [
+        y_axis = st.selectbox("Select Sensor Measurement For Combination:", options=[field_name_mapping[k] for k in [
             "frond_growth_rate", "tensiometer_40", "tensiometer_80", "tdr_water_40", "tdr_water_80"]])
         y_axis = reverse_mapping[y_axis]
 
@@ -295,13 +345,19 @@ elif visualization_type == "Combination Comparisons":
 
     # Scatter plot
     elif plot_type == "Scatter Plot":
-        # Allow user to select X and Y axes for scatter plot
-        x_axis_options = [
-            'date', 'tensiometer_40', 'tensiometer_80', 'tdr_water_40',
-            'tdr_water_80', 'frond_growth_rate', 'eto (mm/day)', 'vpd (kPa)', 'irrigation', "tdr_salt_40", "tdr_salt_80"
-        ]
-        x_axis = st.selectbox("Select X-Axis:", options=x_axis_options, index=0)
-        y_axis = st.selectbox("Select Y-Axis:", options=x_axis_options, index=1)
+        col1, col2 = st.columns(2)
+
+        with col1:
+            x_axis_options = [
+                'date', 'tensiometer_40', 'tensiometer_80', 'tdr_water_40',
+                'tdr_water_80', 'frond_growth_rate', 'eto (mm/day)', 'vpd (kPa)', 'irrigation', "tdr_salt_40",
+                "tdr_salt_80"
+            ]
+            x_axis = st.selectbox("Select X-Axis Measurement:", options=[field_name_mapping[k] for k in x_axis_options], index=0)
+            x_axis_options.remove(reverse_mapping[x_axis])  # have it so the user cant choose the same field for x and y axis
+
+        with col2:
+            y_axis = st.selectbox("Select Y-Axis Measurement:", options=[field_name_mapping[k] for k in x_axis_options], index=1)
 
         # Normalize the date column for color mapping
         filtered_combinations['date_numeric'] = (
@@ -310,13 +366,13 @@ elif visualization_type == "Combination Comparisons":
         # Plot the scatter chart with colors for categories and time progression
         fig = px.scatter(
             filtered_combinations,
-            x=x_axis,
-            y=y_axis,
+            x=reverse_mapping[x_axis],
+            y=reverse_mapping[y_axis],
             color='Combination',  # Use color to differentiate categories
             title=f'Scatter Plot: {x_axis} vs {y_axis}',
             labels={
-                x_axis: x_axis,
-                y_axis: y_axis,
+                reverse_mapping[x_axis]: x_axis,
+                reverse_mapping[y_axis]: y_axis,
                 'date_numeric': 'Date (Oldest to Newest)',
                 'Combination': 'Legend (Colors)'
             },
@@ -338,7 +394,6 @@ elif visualization_type == "Combination Comparisons":
 
         st.plotly_chart(fig)
 
-
     # Trend line plot
     elif plot_type == "Trend Line":
         y_axis = st.selectbox("Select Y-Axis:", options=[field_name_mapping[k] for k in [
@@ -355,10 +410,12 @@ elif visualization_type == "Combination Comparisons":
             labels={'date': 'Date', y_axis: field_name_mapping[y_axis]},
             template="plotly_white"
         )
+        fig.update_traces(opacity=0.6)
         st.plotly_chart(fig)
 
 elif visualization_type == "Run Prediction":
     st.header("Run Frond Growth Rate Prediction")
+    st.write("Predict frond growth rates using advanced models.")
 
     # Input fields for prediction
     irrigation_values = st.text_input(

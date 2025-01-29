@@ -1,6 +1,6 @@
 datetime
 pandas
 plotly
-sklearn
+scikit-learn
 streamlit
 xgboost
