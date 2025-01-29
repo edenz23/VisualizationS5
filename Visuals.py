@@ -227,8 +227,8 @@ elif visualization_type == "Heatmap (Correlations)":
         color_continuous_scale='RdBu_r',
         labels={'color': 'Correlation'},
         template="plotly_white",
-        width=1000,
-        height=800
+        width=750,
+        height=615
     )
 
     # Display the heatmap
