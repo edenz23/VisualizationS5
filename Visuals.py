@@ -47,7 +47,7 @@ reverse_mapping = {v: k for k, v in field_name_mapping.items()}
 st.sidebar.title("Navigation")
 visualization_type = st.sidebar.radio("Select Page:", options=[
     "Welcome Page", "Seasonal Trends", "Heatmap (Correlations)", "Tree Health Visualization", "Combination Comparisons",
-    "Correlation to Frond Growth Rate", "Run Prediction"
+    "Run Prediction"
 ])
 
 # Filters
@@ -356,51 +356,6 @@ elif visualization_type == "Combination Comparisons":
             template="plotly_white"
         )
         st.plotly_chart(fig)
-
-elif visualization_type == "Correlation to Frond Growth Rate":
-    st.header("Correlation to Frond Growth Rate")
-
-    # List of columns available for selection
-    available_columns = [
-        "tensiometer_40", "tensiometer_80", "tdr_water_40", "tdr_water_80",
-        "tdr_salt_40", "tdr_salt_80", "eto (mm/day)", "vpd (kPa)", "irrigation"
-    ]
-    column_labels = [field_name_mapping[col] for col in available_columns]
-
-    # Multiselect dropdown for column selection
-    selected_columns = st.multiselect(
-        "Select Columns to Combine and Correlate with Frond Growth Rate:",
-        options=column_labels,
-        default=[]  # No columns selected by default
-    )
-
-    if selected_columns:
-        # Map selected labels back to column names
-        selected_columns_mapped = [reverse_mapping[label] for label in selected_columns]
-
-        # Create a combined feature as the average of the selected columns
-        filtered_data['combined_feature'] = filtered_data[selected_columns_mapped].mean(axis=1)
-
-        # Compute the correlation of the combined feature with `frond_growth_rate`
-        correlation_value = filtered_data[['combined_feature', 'frond_growth_rate']].corr().iloc[0, 1]
-
-        # Display the correlation value
-        st.subheader(f"Combined Correlation with Frond Growth Rate: {correlation_value:.2f}")
-
-        # Line plot to visualize the relationship
-        fig = px.scatter(
-            filtered_data,
-            x='combined_feature',
-            y='frond_growth_rate',
-            trendline="ols",
-            title='Combined Feature vs. Frond Growth Rate',
-            labels={'combined_feature': 'Combined Feature', 'frond_growth_rate': 'Frond Growth Rate'},
-            template="plotly_white"
-        )
-        st.plotly_chart(fig)
-
-    else:
-        st.write("Select at least one column to calculate the correlation.")
 
 elif visualization_type == "Run Prediction":
     st.header("Run Frond Growth Rate Prediction")
